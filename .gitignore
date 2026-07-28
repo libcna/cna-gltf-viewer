@@ -1,0 +1,20 @@
+# CMake build trees
+/build/
+/cmake-build-*/
+/out/
+
+# Generated content and local editor settings
+/generated/
+/.cache/
+/.idea/
+.vscode/
+
+# Native build artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
