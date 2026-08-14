@@ -49,9 +49,11 @@ cna-gltf-viewer <model.gltf|model.glb> [options]
 --direct            Load glTF directly, without generated CNJ files
 --scale <number>    Offline conversion unit scale (default: 1)
 --output <dir>      Keep offline CNJ output in an empty directory
+--dump-oracle <dir> Write deterministic L2-L5 import evidence to an empty directory
 --clip <name>       Select and loop an imported animation clip
 --no-cull           Disable face culling for debugging
 --capture <file>    Save the first rendered frame as PNG and exit
+--reference-capture Capture a clean 512x512 frame for renderer comparison
 ```
 
 `--scale` is passed to CNA's converter and is useful for assets authored in
@@ -60,10 +62,28 @@ runtime path preserves glTF's metre units. Without `--output`, generated CNJ
 files are written below the system temporary directory and automatically
 removed on exit. An explicit output directory must be empty and is preserved.
 
+`--dump-oracle` invokes the converter embedded in the same viewer build and
+writes `oracle.json`: decoded L2 accessors, L3 semantic primitives, independent
+expected/CNA L4 world geometry, and exact hexadecimal L5 vertex/index bytes.
+It works with both direct and offline rendering, refuses a non-empty directory,
+and must use a directory distinct from `--output`; the evidence is always
+preserved for diffing against the corpus manifest and golden buffers.
+
 `--capture` is intended for deterministic smoke and visual-comparison runs. It
 captures the 800×480 back buffer after the model and diagnostics overlay have
 been drawn, then exits. The normal interactive mode continues until `Esc` or
 the window close action.
+
+`--reference-capture` requires `--capture` and switches only that capture to a
+512×512 back buffer with a transparent clear colour and no diagnostics overlay.
+This matches CNA's pinned Khronos-reference protocol and leaves lighting,
+materials, culling, camera framing and the model draw path unchanged.
+
+The 2026-08-14 pinned-reference run passed all 12 selected CNA fixtures. It
+also found an EasyGL unlit-origin NaN regression before passing after the CNA
+shader fix; the reproducible metric report is committed in CNA as
+`docs/gltf-reference-comparison.json`. This subset does not replace the final
+14-row viewer retake, whose ≥50 MB fetch-on-demand case remains outstanding.
 
 Controls:
 

@@ -11,10 +11,12 @@ namespace CnaGltfViewer
         std::filesystem::path inputPath;
         float unitScale = 1.0f;
         std::optional<std::filesystem::path> outputDirectory;
+        std::optional<std::filesystem::path> oracleOutputDirectory;
         std::optional<std::filesystem::path> capturePath;
         std::optional<std::string> clipName;
         bool direct = false;
         bool noCull = false;
+        bool referenceCapture = false;
     };
 
     struct CommandLineResult

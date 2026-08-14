@@ -240,8 +240,8 @@ namespace CnaGltfViewer
         getWindowProperty().setTitleProperty("CNA glTF Viewer");
         // Match CNA's initial desktop window size. This also keeps an Xvfb capture exact: a bare
         // X11 server has no window manager to acknowledge a later asynchronous resize request.
-        graphics_.setPreferredBackBufferWidthProperty(800);
-        graphics_.setPreferredBackBufferHeightProperty(480);
+        graphics_.setPreferredBackBufferWidthProperty(options_.referenceCapture ? 512 : 800);
+        graphics_.setPreferredBackBufferHeightProperty(options_.referenceCapture ? 512 : 480);
         graphics_.setPreferredPresentationModeProperty(
             Microsoft::Xna::Framework::PresentationMode::NativeBackBuffer);
     }
@@ -285,6 +285,11 @@ namespace CnaGltfViewer
 
     void ViewerGame::LoadModels()
     {
+        // This diagnostic is deliberately available on both load paths. It invokes the exact
+        // converter embedded with this viewer, so a direct-render investigation and an offline
+        // CNJ investigation can emit the same deterministic L2-L5 evidence before rendering.
+        CnjConverter::DumpOracle(options_);
+
         std::error_code error;
         const fs::path input = fs::absolute(options_.inputPath, error);
         if (error || !fs::is_regular_file(input, error))
@@ -583,7 +588,7 @@ namespace CnaGltfViewer
         (void)gameTime;
 
         GraphicsDevice& device = getGraphicsDeviceProperty();
-        device.Clear(Color(24, 29, 38, 255));
+        device.Clear(options_.referenceCapture ? Color::Transparent : Color(24, 29, 38, 255));
 
         const float horizontalDistance = std::cos(pitch_) * distance_;
         const Vector3 cameraPosition(
@@ -602,7 +607,10 @@ namespace CnaGltfViewer
 
         DrawModels(view, projection, false);
         DrawModels(view, projection, true);
-        DrawDiagnosticsOverlay();
+        if (!options_.referenceCapture)
+        {
+            DrawDiagnosticsOverlay();
+        }
         CaptureFirstFrame();
     }
 

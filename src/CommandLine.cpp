@@ -37,6 +37,21 @@ namespace CnaGltfViewer
             const std::string extension = path.extension().string();
             return extension == ".gltf" || extension == ".glb";
         }
+
+        [[nodiscard]] std::filesystem::path NormalizeOutputPath(
+            const std::filesystem::path& path)
+        {
+            std::error_code error;
+            std::filesystem::path normalized = std::filesystem::weakly_canonical(path, error);
+            if (!error)
+            {
+                return normalized;
+            }
+
+            error.clear();
+            normalized = std::filesystem::absolute(path, error);
+            return (error ? path : normalized).lexically_normal();
+        }
     }
 
     CommandLineResult ParseCommandLine(const int argc, char* argv[])
@@ -86,6 +101,21 @@ namespace CnaGltfViewer
                 continue;
             }
 
+            if (argument == "--dump-oracle")
+            {
+                if (++index >= argc || std::string_view(argv[index]).empty())
+                {
+                    throw std::invalid_argument(
+                        "--dump-oracle requires an empty output directory path.");
+                }
+                if (options.oracleOutputDirectory.has_value())
+                {
+                    throw std::invalid_argument("--dump-oracle may be specified only once.");
+                }
+                options.oracleOutputDirectory = std::filesystem::path(argv[index]);
+                continue;
+            }
+
             if (argument == "--capture")
             {
                 if (++index >= argc)
@@ -130,6 +160,12 @@ namespace CnaGltfViewer
                 continue;
             }
 
+            if (argument == "--reference-capture")
+            {
+                options.referenceCapture = true;
+                continue;
+            }
+
             if (argument.starts_with('-'))
             {
                 throw std::invalid_argument("Unknown option: " + std::string(argument));
@@ -160,6 +196,17 @@ namespace CnaGltfViewer
         {
             throw std::invalid_argument("--direct cannot be combined with --scale; direct runtime loading preserves glTF units.");
         }
+        if (options.referenceCapture && !options.capturePath.has_value())
+        {
+            throw std::invalid_argument("--reference-capture requires --capture.");
+        }
+        if (options.outputDirectory.has_value() && options.oracleOutputDirectory.has_value() &&
+            NormalizeOutputPath(*options.outputDirectory) ==
+                NormalizeOutputPath(*options.oracleOutputDirectory))
+        {
+            throw std::invalid_argument(
+                "--output and --dump-oracle must use different directories.");
+        }
 
         result.options = std::move(options);
         return result;
@@ -175,9 +222,11 @@ namespace CnaGltfViewer
             << "  --direct            Load .gltf/.glb directly without generated CNJ files\n"
             << "  --scale <number>    Offline conversion unit scale (default: 1)\n"
             << "  --output <dir>      Keep offline CNJ output in an empty directory\n"
+            << "  --dump-oracle <dir> Write deterministic L2-L5 import evidence to an empty directory\n"
             << "  --clip <name>       Select and loop an imported animation clip\n"
             << "  --no-cull           Disable face culling for debugging\n"
-            << "  --capture <file>    Save the first rendered frame as PNG and exit\n\n"
+            << "  --capture <file>    Save the first rendered frame as PNG and exit\n"
+            << "  --reference-capture Capture a clean 512x512 frame for renderer comparison\n\n"
             << "Controls:\n"
             << "  Left mouse drag  Orbit camera\n"
             << "  Mouse wheel      Zoom\n"

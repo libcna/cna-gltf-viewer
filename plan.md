@@ -24,7 +24,11 @@ compensations.
 - Default lighting for scenes with no imported lights, while preserving
   authored unlit materials.
 - On-screen and stdout rendering of `GltfImportReportEXT` diagnostics.
+- Deterministic L2-L5 `oracle.json` dumps on both runtime and offline load paths.
 - Deterministic first-frame PNG capture for visual regression work.
+- Clean 512×512 reference captures with transparent background and no overlay.
+- The pinned Khronos subset is 12/12 green; its first run exposed and then
+  verified CNA's EasyGL unlit-origin NaN fix.
 - Safe explicit-output behaviour: a supplied output directory must be empty.
 - Automatic deletion of implicit temporary CNJ output on both conversion
   failure and normal viewer shutdown.
@@ -42,8 +46,7 @@ compensations.
 
 ## Next milestones
 
-1. Add `--dump-oracle` for CNA's L2–L5 numerical import evidence.
-2. Complete and automate the reference-renderer retake matrix, including
-   Draco-compressed and large real-world assets.
-3. Add drag-and-drop loading and model reload without restarting the process.
-4. Add a scene/material/animation inspector and transparent-depth sorting.
+1. Complete the exact 14-row reference-renderer retake record. Draco is green;
+   the remaining hard boundary is the fetch-on-demand ≥50 MB asset.
+2. Add drag-and-drop loading and model reload without restarting the process.
+3. Add a scene/material/animation inspector and transparent-depth sorting.

@@ -18,5 +18,6 @@ namespace CnaGltfViewer
     {
     public:
         [[nodiscard]] static ConvertedScene Convert(const ViewerOptions& options);
+        static void DumpOracle(const ViewerOptions& options);
     };
 }

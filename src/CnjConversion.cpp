@@ -236,4 +236,56 @@ namespace CnaGltfViewer
         failureCleanup.armed = false;
         return result;
     }
+
+    void CnjConverter::DumpOracle(const ViewerOptions& options)
+    {
+        if (!options.oracleOutputDirectory.has_value())
+        {
+            return;
+        }
+
+        namespace fs = std::filesystem;
+        std::error_code error;
+        const fs::path input = fs::absolute(options.inputPath, error);
+        if (error || !fs::is_regular_file(input, error))
+        {
+            throw std::runtime_error(
+                "Input glTF file does not exist or is not a regular file: " +
+                options.inputPath.string());
+        }
+
+        const fs::path output = fs::absolute(*options.oracleOutputDirectory, error);
+        if (error)
+        {
+            throw std::runtime_error(
+                "Could not resolve the oracle output directory: " + error.message());
+        }
+
+        const fs::path converter(CNA_GLTF_TO_CNJ_TOOL_PATH);
+        if (!fs::is_regular_file(converter, error))
+        {
+            throw std::runtime_error(
+                "CNA glTF-to-CNJ converter was not found: " + converter.string());
+        }
+
+        const std::string command = QuoteForShell(converter) + " --dump-oracle " +
+                                    QuoteForShell(input) + " " + QuoteForShell(output);
+        std::cout << "Writing L2-L5 oracle evidence for " << input << " to " << output
+                  << "...\n";
+        const int exitCode = std::system(command.c_str());
+        if (exitCode != 0)
+        {
+            throw std::runtime_error(
+                "CNA glTF oracle dump failed with exit code " +
+                std::to_string(exitCode) + ".");
+        }
+
+        const fs::path oracle = output / "oracle.json";
+        if (!fs::is_regular_file(oracle, error))
+        {
+            throw std::runtime_error(
+                "CNA glTF oracle dump completed but did not produce: " + oracle.string());
+        }
+        std::cout << "Oracle evidence written to " << oracle << ".\n";
+    }
 }
