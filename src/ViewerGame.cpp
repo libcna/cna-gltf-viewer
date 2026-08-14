@@ -370,6 +370,9 @@ namespace CnaGltfViewer
     {
         std::set<std::string> availableNames;
         bool selectedClipFound = false;
+        const System::TimeSpan initialTime = options_.animationTimeSeconds.has_value()
+            ? System::TimeSpan::FromSeconds(*options_.animationTimeSeconds)
+            : System::TimeSpan::Zero;
 
         for (Model& model : models_)
         {
@@ -398,7 +401,7 @@ namespace CnaGltfViewer
                         selectedClipFound = true;
                     }
                 }
-                playback.player->Update(System::TimeSpan::Zero, false, true);
+                playback.player->Update(initialTime, false, true);
                 ApplySkinPalette(skin, playback.player->GetSkinTransforms());
                 skinPlaybacks_.push_back(std::move(playback));
             }
@@ -410,7 +413,12 @@ namespace CnaGltfViewer
                     availableNames.insert(name);
                     if (options_.clipName.has_value() && name == *options_.clipName)
                     {
-                        ApplyClipToBonesEXT(model, clip, System::TimeSpan::Zero);
+                        const double duration = clip.Duration.getTotalSecondsProperty();
+                        const double requested = initialTime.getTotalSecondsProperty();
+                        const double position =
+                            duration > 0.0 ? std::fmod(requested, duration) : 0.0;
+                        ApplyClipToBonesEXT(
+                            model, clip, System::TimeSpan::FromSeconds(position));
                         rigidPlaybacks_.push_back({.model = &model, .clip = &clip});
                         selectedClipFound = true;
                     }
@@ -425,7 +433,13 @@ namespace CnaGltfViewer
                 "' was not found. Available clips: " + JoinClipNames(availableNames) + ".");
         }
 
-        if (options_.clipName.has_value())
+        if (options_.animationTimeSeconds.has_value())
+        {
+            std::cout << "Showing animation clip '" << *options_.clipName
+                      << "' at fixed looping time " << *options_.animationTimeSeconds
+                      << " second(s).\n";
+        }
+        else if (options_.clipName.has_value())
         {
             std::cout << "Playing animation clip '" << *options_.clipName << "'.\n";
         }
@@ -564,6 +578,10 @@ namespace CnaGltfViewer
 
     void ViewerGame::UpdateAnimations(const Microsoft::Xna::Framework::GameTime& gameTime)
     {
+        if (options_.animationTimeSeconds.has_value())
+        {
+            return;
+        }
         for (SkinPlayback& playback : skinPlaybacks_)
         {
             if (playback.player->getCurrentClipProperty() == nullptr)

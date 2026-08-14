@@ -51,6 +51,8 @@ cna-gltf-viewer <model.gltf|model.glb> [options]
 --output <dir>      Keep offline CNJ output in an empty directory
 --dump-oracle <dir> Write deterministic L2-L5 import evidence to an empty directory
 --clip <name>       Select and loop an imported animation clip
+--animation-time <seconds>
+                     Freeze the selected clip at a reproducible looping time
 --camera <name|#n>  Use an imported camera explicitly (requires --direct)
 --no-cull           Disable face culling for debugging
 --capture <file>    Save the first rendered frame as PNG and exit
@@ -69,6 +71,11 @@ expected/CNA L4 world geometry, and exact hexadecimal L5 vertex/index bytes.
 It works with both direct and offline rendering, refuses a non-empty directory,
 and must use a directory distinct from `--output`; the evidence is always
 preserved for diffing against the corpus manifest and golden buffers.
+
+`--animation-time` requires `--clip` and freezes both skeletal and rigid-node
+playback at the requested looping time. This makes an animated capture
+repeatable across independent processes instead of sampling whichever elapsed
+time happens to precede the first rendered frame.
 
 `--capture` is intended for deterministic smoke and visual-comparison runs. It
 captures the 800×480 back buffer after the model and diagnostics overlay have

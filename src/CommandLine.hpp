@@ -14,6 +14,7 @@ namespace CnaGltfViewer
         std::optional<std::filesystem::path> oracleOutputDirectory;
         std::optional<std::filesystem::path> capturePath;
         std::optional<std::string> clipName;
+        std::optional<double> animationTimeSeconds;
         std::optional<std::string> cameraSelector;
         bool direct = false;
         bool noCull = false;

@@ -19,6 +19,7 @@ compensations.
 - Orbit camera framed from CNA's world/posed model bounds; no CNJ parsing or
   vertex-sidecar inspection in the viewer.
 - Bind-pose skin palettes plus named skeletal and rigid-node clip playback.
+- Reproducible fixed-time animation sampling for capture retakes.
 - Material-driven culling (including `doubleSided` and mirrored placement),
   sampler state and opaque/transparent draw passes; `--no-cull` is debug-only.
 - Default lighting for scenes with no imported lights, while preserving

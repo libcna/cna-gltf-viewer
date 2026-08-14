@@ -32,6 +32,29 @@ namespace CnaGltfViewer
             return scale;
         }
 
+        [[nodiscard]] double ParseNonNegativeTime(const std::string_view value)
+        {
+            std::size_t parsedCharacters = 0;
+            double seconds = 0.0;
+
+            try
+            {
+                seconds = std::stod(std::string(value), &parsedCharacters);
+            }
+            catch (const std::exception&)
+            {
+                throw std::invalid_argument(
+                    "--animation-time must be a finite non-negative number.");
+            }
+
+            if (parsedCharacters != value.size() || !std::isfinite(seconds) || seconds < 0.0)
+            {
+                throw std::invalid_argument(
+                    "--animation-time must be a finite non-negative number.");
+            }
+            return seconds;
+        }
+
         [[nodiscard]] bool IsGltfPath(const std::filesystem::path& path)
         {
             const std::string extension = path.extension().string();
@@ -148,6 +171,21 @@ namespace CnaGltfViewer
                 continue;
             }
 
+            if (argument == "--animation-time")
+            {
+                if (++index >= argc)
+                {
+                    throw std::invalid_argument("--animation-time requires seconds.");
+                }
+                if (options.animationTimeSeconds.has_value())
+                {
+                    throw std::invalid_argument(
+                        "--animation-time may be specified only once.");
+                }
+                options.animationTimeSeconds = ParseNonNegativeTime(argv[index]);
+                continue;
+            }
+
             if (argument == "--camera")
             {
                 if (++index >= argc || std::string_view(argv[index]).empty())
@@ -215,6 +253,10 @@ namespace CnaGltfViewer
         {
             throw std::invalid_argument("--reference-capture requires --capture.");
         }
+        if (options.animationTimeSeconds.has_value() && !options.clipName.has_value())
+        {
+            throw std::invalid_argument("--animation-time requires --clip.");
+        }
         if (options.cameraSelector.has_value() && !options.direct)
         {
             throw std::invalid_argument(
@@ -244,6 +286,7 @@ namespace CnaGltfViewer
             << "  --output <dir>      Keep offline CNJ output in an empty directory\n"
             << "  --dump-oracle <dir> Write deterministic L2-L5 import evidence to an empty directory\n"
             << "  --clip <name>       Select and loop an imported animation clip\n"
+            << "  --animation-time <seconds> Freeze the selected clip at a reproducible time\n"
             << "  --camera <name|#n> Use an imported camera explicitly (requires --direct)\n"
             << "  --no-cull           Disable face culling for debugging\n"
             << "  --capture <file>    Save the first rendered frame as PNG and exit\n"
