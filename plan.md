@@ -33,6 +33,9 @@ compensations.
   is the explicit direct-load opt-in for an authored, including animated, camera.
 - The pinned Khronos subset is 12/12 green; its first run exposed and then
   verified CNA's EasyGL unlit-origin NaN fix.
+- The final pinned Khronos Gate C retake is 14/14 rows green (15 captures),
+  including fixed-time skin/rigid animation, Draco and a 52,686,624-byte
+  Sponza resource closure; CNA owns the reproducible aggregate report.
 - Safe explicit-output behaviour: a supplied output directory must be empty.
 - Automatic deletion of implicit temporary CNJ output on both conversion
   failure and normal viewer shutdown.
@@ -45,12 +48,10 @@ compensations.
   included.
 - Transparent primitives are drawn after opaque primitives, but are not yet
   depth-sorted against one another.
-- The full reference-renderer retake matrix, including Draco, remains campaign
-  work tracked by CNA's `plan_gltf.md`.
+- Cross-renderer image coverage outside the pinned Khronos Gate C protocol
+  remains campaign work tracked by CNA's `plan_gltf.md`.
 
 ## Next milestones
 
-1. Complete the exact 14-row reference-renderer retake record. Draco is green;
-   the remaining hard boundary is the fetch-on-demand ≥50 MB asset.
-2. Add drag-and-drop loading and model reload without restarting the process.
-3. Add a scene/material/animation inspector and transparent-depth sorting.
+1. Add drag-and-drop loading and model reload without restarting the process.
+2. Add a scene/material/animation inspector and transparent-depth sorting.

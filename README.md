@@ -96,11 +96,14 @@ or duplicate camera) is the explicit opt-in. It requires `--direct`, uses the
 camera node's live bone transform so animation is visible, and rebuilds an
 unauthored perspective aspect ratio from the actual viewport.
 
-The 2026-08-14 pinned-reference run passed all 12 selected CNA fixtures. It
-also found an EasyGL unlit-origin NaN regression before passing after the CNA
-shader fix; the reproducible metric report is committed in CNA as
-`docs/gltf-reference-comparison.json`. This subset does not replace the final
-14-row viewer retake, whose ≥50 MB fetch-on-demand case remains outstanding.
+The 2026-08-14 pinned-reference subset passed all 12 selected CNA fixtures and
+found an EasyGL unlit-origin NaN regression before passing after the CNA shader
+fix. The final Gate C retake also passed all 14 required rows (15 captures,
+because sparse attribute and sparse index accessors are separate cases),
+including fixed-time skeletal and rigid animation, Draco and the pinned
+52,686,624-byte Sponza resource closure. CNA commits both reproducible metric
+reports as `docs/gltf-reference-comparison.json` and
+`docs/gltf-viewer-retake-report.json`; the screenshots remain disposable.
 
 Controls:
 
