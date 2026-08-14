@@ -15,20 +15,20 @@ if(NOT EXISTS "${CNA_ROOT_DIR}/CMakeLists.txt")
         "Clone https://github.com/openeggbert/cna next to this repository or set CNA_ROOT_DIR.")
 endif()
 
-set(CNA_GLTF_VIEWER_BACKENDS SDL_RENDERER EASYGL BGFX VULKAN WEBGPU HEADLESS SOFTWARE)
-set(CNA_GRAPHICS_BACKEND "EASYGL" CACHE STRING "CNA graphics backend")
-set_property(CACHE CNA_GRAPHICS_BACKEND PROPERTY STRINGS ${CNA_GLTF_VIEWER_BACKENDS})
+set(CNA_GLTF_VIEWER_RENDERERS SDL_RENDERER OPENGLES3 BGFX VULKAN WEBGPU HEADLESS SOFTWARE)
+set(CNA_GRAPHICS_RENDERER "OPENGLES3" CACHE STRING "CNA graphics renderer")
+set_property(CACHE CNA_GRAPHICS_RENDERER PROPERTY STRINGS ${CNA_GLTF_VIEWER_RENDERERS})
 
-if(NOT CNA_GRAPHICS_BACKEND IN_LIST CNA_GLTF_VIEWER_BACKENDS)
+if(NOT CNA_GRAPHICS_RENDERER IN_LIST CNA_GLTF_VIEWER_RENDERERS)
     message(FATAL_ERROR
-        "Unknown CNA_GRAPHICS_BACKEND='${CNA_GRAPHICS_BACKEND}'. "
-        "Choose one of: ${CNA_GLTF_VIEWER_BACKENDS}.")
+        "Unknown CNA_GRAPHICS_RENDERER='${CNA_GRAPHICS_RENDERER}'. "
+        "Choose one of: ${CNA_GLTF_VIEWER_RENDERERS}.")
 endif()
 
-# The viewer needs CNA's NOXNA PBR effects to faithfully display PBR glTF
+# The viewer needs CNA's CNAEXT PBR effects to faithfully display PBR glTF
 # materials. CNA's own tests/examples and transitive dependency tests are not
 # part of this application's build.
-set(CNA_NOXNA ON CACHE BOOL "Enable CNA extended graphics APIs" FORCE)
+set(CNA_CNAEXT ON CACHE BOOL "Enable CNA extended graphics APIs" FORCE)
 set(CNA_ENABLE_NET OFF CACHE BOOL "Disable unused CNA networking" FORCE)
 set(CNA_BUILD_TESTS OFF CACHE BOOL "Disable CNA tests" FORCE)
 set(CNA_BUILD_EXAMPLES OFF CACHE BOOL "Disable CNA examples" FORCE)
@@ -38,14 +38,10 @@ set(BUILD_TESTING OFF CACHE BOOL "Disable transitive dependency tests" FORCE)
 
 add_subdirectory("${CNA_ROOT_DIR}" CNA_BUILD)
 
-string(TOLOWER "${CNA_GRAPHICS_BACKEND}" CNA_GLTF_VIEWER_BACKEND_LOWER)
-set(CNA_GLTF_VIEWER_BACKEND_TARGET
-    "cna_backend_graphics_${CNA_GLTF_VIEWER_BACKEND_LOWER}")
-
-if(NOT TARGET ${CNA_GLTF_VIEWER_BACKEND_TARGET})
+if(NOT TARGET CNA)
     message(FATAL_ERROR
-        "CNA did not define '${CNA_GLTF_VIEWER_BACKEND_TARGET}' for "
-        "CNA_GRAPHICS_BACKEND=${CNA_GRAPHICS_BACKEND}.")
+        "CNA did not define its compatible umbrella target for "
+        "CNA_GRAPHICS_RENDERER=${CNA_GRAPHICS_RENDERER}.")
 endif()
 
 add_executable(cna_gltf_viewer
@@ -64,14 +60,9 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(cna_gltf_viewer PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-# CNA and its selected static graphics backend refer to one another on GNU ld.
-# Keep both targets in a linker group, matching CNA's own consumer templates.
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND NOT WIN32)
-    target_link_libraries(cna_gltf_viewer PRIVATE
-        -Wl,--start-group CNA ${CNA_GLTF_VIEWER_BACKEND_TARGET} -Wl,--end-group)
-else()
-    target_link_libraries(cna_gltf_viewer PRIVATE CNA ${CNA_GLTF_VIEWER_BACKEND_TARGET})
-endif()
+# CNA's compatible umbrella already carries the selected renderer and declares
+# the framework/renderer static-library cycles itself.
+target_link_libraries(cna_gltf_viewer PRIVATE CNA)
 
 find_package(SDL3 REQUIRED CONFIG)
 target_link_libraries(cna_gltf_viewer PRIVATE SDL3::SDL3)

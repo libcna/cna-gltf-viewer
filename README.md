@@ -18,13 +18,13 @@ Animation playback and a scene inspector are planned follow-up work.
 - CMake 3.21 or newer
 - A C++23 compiler
 - A sibling checkout of [CNA](https://github.com/openeggbert/cna) at `../cna`
-- A desktop OpenGL environment for the default `EASYGL` backend
+- A desktop OpenGL environment for the default `OPENGLES3` renderer
 
 ## Build
 
 ```bash
-cmake -S . -B build -G Ninja
-cmake --build build --target cna_gltf_viewer --parallel 4
+cmake -S . -B build -G Ninja -DCNA_GRAPHICS_RENDERER=OPENGLES3
+cmake --build build --target cna_gltf_viewer --parallel 3
 ```
 
 `CNA_ROOT_DIR` may be used when CNA is not checked out next to this repository:
