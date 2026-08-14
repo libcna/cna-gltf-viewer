@@ -7,7 +7,9 @@
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
+#include <iomanip>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -896,6 +898,20 @@ namespace CnaGltfViewer
             sceneRadius_ = 1.0f;
         }
         ResetCamera();
+
+        if (options_.referenceCapture && !options_.cameraSelector.has_value())
+        {
+            const float nearPlane = std::max(sceneRadius_ * 0.001f, 0.001f);
+            const float farPlane = std::max(distance_ + sceneRadius_ * 4.0f, 100.0f);
+            std::ostringstream metadata;
+            metadata << std::setprecision(std::numeric_limits<float>::max_digits10)
+                     << "CNA_REFERENCE_CAMERA={\"target\":[" << target_.X << ','
+                     << target_.Y << ',' << target_.Z << "],\"sceneRadius\":"
+                     << sceneRadius_ << ",\"distance\":" << distance_
+                     << ",\"near\":" << nearPlane << ",\"far\":" << farPlane
+                     << ",\"yaw\":" << yaw_ << ",\"pitch\":" << pitch_ << '}';
+            std::cout << metadata.str() << '\n';
+        }
 
         if (!options_.cameraSelector.has_value())
         {

@@ -86,6 +86,9 @@ the window close action.
 512×512 back buffer with a transparent clear colour and no diagnostics overlay.
 This matches CNA's pinned Khronos-reference protocol and leaves lighting,
 materials, culling, camera framing and the model draw path unchanged.
+For the default orbit camera it also prints one `CNA_REFERENCE_CAMERA=` JSON
+line with the exact target, radius, distance and clipping planes consumed by
+the frame, so an independent renderer can reproduce the presentation rig.
 
 The viewer's bounds-framed orbit camera is always the default, even when the
 asset contains cameras. `--camera MainCam` (or `--camera '#0'` for an unnamed
