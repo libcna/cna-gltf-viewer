@@ -27,6 +27,8 @@ compensations.
 - Deterministic L2-L5 `oracle.json` dumps on both runtime and offline load paths.
 - Deterministic first-frame PNG capture for visual regression work.
 - Clean 512×512 reference captures with transparent background and no overlay.
+- The bounds-framed orbit camera remains the default; `--camera <name|#index>`
+  is the explicit direct-load opt-in for an authored, including animated, camera.
 - The pinned Khronos subset is 12/12 green; its first run exposed and then
   verified CNA's EasyGL unlit-origin NaN fix.
 - Safe explicit-output behaviour: a supplied output directory must be empty.

@@ -45,6 +45,12 @@ namespace CnaGltfViewer
             const Microsoft::Xna::Framework::Graphics::AnimationClip* clip = nullptr;
         };
 
+        struct ImportedCameraSelection
+        {
+            Microsoft::Xna::Framework::Graphics::Model* model = nullptr;
+            std::size_t cameraIndex = 0;
+        };
+
         void LoadModels();
         void ConfigureCameraFromModels();
         void ConfigureFallbackLighting();
@@ -64,6 +70,7 @@ namespace CnaGltfViewer
         std::vector<Microsoft::Xna::Framework::Graphics::Model> models_;
         std::vector<SkinPlayback> skinPlaybacks_;
         std::vector<RigidPlayback> rigidPlaybacks_;
+        std::optional<ImportedCameraSelection> importedCamera_;
         std::vector<std::string> diagnosticOverlayLines_;
         std::unique_ptr<Microsoft::Xna::Framework::Graphics::SpriteBatch> spriteBatch_;
         std::unique_ptr<Microsoft::Xna::Framework::Graphics::Texture2D> overlayPixel_;

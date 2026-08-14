@@ -148,6 +148,21 @@ namespace CnaGltfViewer
                 continue;
             }
 
+            if (argument == "--camera")
+            {
+                if (++index >= argc || std::string_view(argv[index]).empty())
+                {
+                    throw std::invalid_argument(
+                        "--camera requires an imported camera name or #index.");
+                }
+                if (options.cameraSelector.has_value())
+                {
+                    throw std::invalid_argument("--camera may be specified only once.");
+                }
+                options.cameraSelector = std::string(argv[index]);
+                continue;
+            }
+
             if (argument == "--direct")
             {
                 options.direct = true;
@@ -200,6 +215,11 @@ namespace CnaGltfViewer
         {
             throw std::invalid_argument("--reference-capture requires --capture.");
         }
+        if (options.cameraSelector.has_value() && !options.direct)
+        {
+            throw std::invalid_argument(
+                "--camera requires --direct because the offline CNJ path does not carry glTF cameras.");
+        }
         if (options.outputDirectory.has_value() && options.oracleOutputDirectory.has_value() &&
             NormalizeOutputPath(*options.outputDirectory) ==
                 NormalizeOutputPath(*options.oracleOutputDirectory))
@@ -224,6 +244,7 @@ namespace CnaGltfViewer
             << "  --output <dir>      Keep offline CNJ output in an empty directory\n"
             << "  --dump-oracle <dir> Write deterministic L2-L5 import evidence to an empty directory\n"
             << "  --clip <name>       Select and loop an imported animation clip\n"
+            << "  --camera <name|#n> Use an imported camera explicitly (requires --direct)\n"
             << "  --no-cull           Disable face culling for debugging\n"
             << "  --capture <file>    Save the first rendered frame as PNG and exit\n"
             << "  --reference-capture Capture a clean 512x512 frame for renderer comparison\n\n"

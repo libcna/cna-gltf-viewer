@@ -51,6 +51,7 @@ cna-gltf-viewer <model.gltf|model.glb> [options]
 --output <dir>      Keep offline CNJ output in an empty directory
 --dump-oracle <dir> Write deterministic L2-L5 import evidence to an empty directory
 --clip <name>       Select and loop an imported animation clip
+--camera <name|#n>  Use an imported camera explicitly (requires --direct)
 --no-cull           Disable face culling for debugging
 --capture <file>    Save the first rendered frame as PNG and exit
 --reference-capture Capture a clean 512x512 frame for renderer comparison
@@ -78,6 +79,12 @@ the window close action.
 512×512 back buffer with a transparent clear colour and no diagnostics overlay.
 This matches CNA's pinned Khronos-reference protocol and leaves lighting,
 materials, culling, camera framing and the model draw path unchanged.
+
+The viewer's bounds-framed orbit camera is always the default, even when the
+asset contains cameras. `--camera MainCam` (or `--camera '#0'` for an unnamed
+or duplicate camera) is the explicit opt-in. It requires `--direct`, uses the
+camera node's live bone transform so animation is visible, and rebuilds an
+unauthored perspective aspect ratio from the actual viewport.
 
 The 2026-08-14 pinned-reference run passed all 12 selected CNA fixtures. It
 also found an EasyGL unlit-origin NaN regression before passing after the CNA

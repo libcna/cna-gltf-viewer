@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <cctype>
 #include <cmath>
 #include <cstdint>
@@ -590,20 +591,62 @@ namespace CnaGltfViewer
         GraphicsDevice& device = getGraphicsDeviceProperty();
         device.Clear(options_.referenceCapture ? Color::Transparent : Color(24, 29, 38, 255));
 
-        const float horizontalDistance = std::cos(pitch_) * distance_;
-        const Vector3 cameraPosition(
-            target_.X + std::sin(yaw_) * horizontalDistance,
-            target_.Y + std::sin(pitch_) * distance_,
-            target_.Z + std::cos(yaw_) * horizontalDistance);
-        const Matrix view = Matrix::CreateLookAt(cameraPosition, target_, Vector3::Up);
-
         const Viewport viewport = device.getViewportProperty();
         const float aspect = static_cast<float>(viewport.getWidthProperty()) /
                              static_cast<float>(std::max(viewport.getHeightProperty(), 1));
-        const float nearPlane = std::max(sceneRadius_ * 0.001f, 0.001f);
-        const float farPlane = std::max(distance_ + sceneRadius_ * 4.0f, 100.0f);
-        const Matrix projection = Matrix::CreatePerspectiveFieldOfView(
-            MathHelper::PiOver4, aspect, nearPlane, farPlane);
+
+        Matrix view;
+        Matrix projection;
+        if (importedCamera_.has_value())
+        {
+            Model& model = *importedCamera_->model;
+            const ModelCameraEXT& camera =
+                model.getCamerasEXTProperty().at(importedCamera_->cameraIndex);
+            Matrix cameraWorld = camera.WorldTransform;
+            if (camera.SceneNodeIndex >= 0)
+            {
+                std::vector<Matrix> absoluteBones(
+                    static_cast<std::size_t>(model.getBonesProperty().getCountProperty()));
+                if (static_cast<std::size_t>(camera.SceneNodeIndex) >= absoluteBones.size())
+                {
+                    throw std::runtime_error(
+                        "Selected imported camera refers to a scene node outside Model::Bones.");
+                }
+                model.CopyAbsoluteBoneTransformsTo(absoluteBones);
+                cameraWorld = absoluteBones[static_cast<std::size_t>(camera.SceneNodeIndex)];
+            }
+            const float determinant = cameraWorld.Determinant();
+            if (!std::isfinite(determinant) || std::abs(determinant) < 1e-8f)
+            {
+                throw std::runtime_error(
+                    "Selected imported camera has a non-invertible world transform.");
+            }
+            view = Matrix::Invert(cameraWorld);
+            projection = camera.Projection;
+            if (camera.IsPerspective && !camera.HasAuthoredAspectRatio)
+            {
+                projection = camera.HasInfiniteFarPlane
+                    ? CreateInfinitePerspectiveFieldOfViewEXT(
+                          camera.FieldOfView, aspect, camera.NearPlaneDistance)
+                    : Matrix::CreatePerspectiveFieldOfView(
+                          camera.FieldOfView, aspect, camera.NearPlaneDistance,
+                          camera.FarPlaneDistance);
+            }
+        }
+        else
+        {
+            const float horizontalDistance = std::cos(pitch_) * distance_;
+            const Vector3 cameraPosition(
+                target_.X + std::sin(yaw_) * horizontalDistance,
+                target_.Y + std::sin(pitch_) * distance_,
+                target_.Z + std::cos(yaw_) * horizontalDistance);
+            view = Matrix::CreateLookAt(cameraPosition, target_, Vector3::Up);
+
+            const float nearPlane = std::max(sceneRadius_ * 0.001f, 0.001f);
+            const float farPlane = std::max(distance_ + sceneRadius_ * 4.0f, 100.0f);
+            projection = Matrix::CreatePerspectiveFieldOfView(
+                MathHelper::PiOver4, aspect, nearPlane, farPlane);
+        }
 
         DrawModels(view, projection, false);
         DrawModels(view, projection, true);
@@ -835,6 +878,70 @@ namespace CnaGltfViewer
             sceneRadius_ = 1.0f;
         }
         ResetCamera();
+
+        if (!options_.cameraSelector.has_value())
+        {
+            // GLTF-323: imported cameras never silently replace the viewer's orbit/framing camera.
+            return;
+        }
+
+        std::vector<ImportedCameraSelection> cameras;
+        for (Model& model : models_)
+        {
+            for (std::size_t index = 0; index < model.getCamerasEXTProperty().size(); ++index)
+            {
+                cameras.push_back({&model, index});
+            }
+        }
+        if (cameras.empty())
+        {
+            throw std::runtime_error("--camera was requested, but the glTF scene has no camera.");
+        }
+
+        const std::string& selector = *options_.cameraSelector;
+        if (selector.starts_with('#'))
+        {
+            std::size_t index = 0;
+            const char* begin = selector.data() + 1;
+            const char* end = selector.data() + selector.size();
+            const auto [parsed, error] = std::from_chars(begin, end, index);
+            if (begin == end || error != std::errc{} || parsed != end || index >= cameras.size())
+            {
+                throw std::runtime_error(
+                    "Imported camera selector '" + selector + "' is not a valid available #index.");
+            }
+            importedCamera_ = cameras[index];
+        }
+        else
+        {
+            for (const ImportedCameraSelection& candidate : cameras)
+            {
+                const ModelCameraEXT& camera =
+                    candidate.model->getCamerasEXTProperty().at(candidate.cameraIndex);
+                if (camera.Name != selector)
+                {
+                    continue;
+                }
+                if (importedCamera_.has_value())
+                {
+                    throw std::runtime_error(
+                        "Imported camera name '" + selector +
+                        "' is ambiguous; select it by global #index instead.");
+                }
+                importedCamera_ = candidate;
+            }
+            if (!importedCamera_.has_value())
+            {
+                throw std::runtime_error(
+                    "No imported camera named '" + selector + "' exists in the loaded scene.");
+            }
+        }
+
+        const ModelCameraEXT& selected = importedCamera_->model->getCamerasEXTProperty().at(
+            importedCamera_->cameraIndex);
+        std::cout << "Using imported camera '"
+                  << (selected.Name.empty() ? "<unnamed>" : selected.Name)
+                  << "' by explicit --camera request; the viewer orbit camera remains the default.\n";
     }
 
     GetTypeNameCPP(ViewerGame, "CnaGltfViewer.ViewerGame")
