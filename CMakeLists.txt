@@ -83,4 +83,21 @@ if(CNA_GLTF_VIEWER_BUILD_TESTS)
             "-DCONVERTER=$<TARGET_FILE:cna_tool_gltf_to_cnj>"
             "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/tests/conversion"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/VerifyConversion.cmake")
+
+    # CNA's L0-L6 ladder is renderer-independent.  The production viewer supplies the final
+    # OPENGLES3 rung: every canonical fixture is loaded through ContentManager in two independent
+    # processes and compared with its committed EasyGL image/disposition oracle.
+    if(CNA_GRAPHICS_RENDERER STREQUAL "OPENGLES3")
+        find_package(Python3 REQUIRED COMPONENTS Interpreter)
+        add_test(
+            NAME CnaGltfConformanceL7
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CNA_ROOT_DIR}/scripts/gltf-l7-corpus.py"
+                --viewer "$<TARGET_FILE:cna_gltf_viewer>"
+                --viewer-source "${CMAKE_CURRENT_SOURCE_DIR}")
+        set_tests_properties(CnaGltfConformanceL7 PROPERTIES
+            LABELS gltf-conformance
+            TIMEOUT 600
+            WORKING_DIRECTORY "${CNA_ROOT_DIR}")
+    endif()
 endif()
