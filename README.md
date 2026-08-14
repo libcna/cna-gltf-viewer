@@ -1,17 +1,16 @@
 # CNA glTF Viewer
 
 `cna-gltf-viewer` is a desktop C++ application for viewing glTF 2.0 assets
-(`.gltf` and `.glb`). It uses the sibling [CNA](../cna) checkout for both the
-conversion and rendering paths:
+(`.gltf` and `.glb`) through CNA. Its default path converts the source with
+`cna_tool_gltf_to_cnj` and loads the resulting CNJ model; `--direct` exercises
+CNA's runtime glTF loader without intermediate files.
 
-1. CNA's `cna_tool_gltf_to_cnj` converts the input file to CNA's native CNJ
-   model format.
-2. CNA's `ContentManager` loads the generated CNJ models and their sidecars.
-3. The application renders every generated model with an interactive orbit
-   camera.
-
-The current viewer intentionally targets the converted model's bind pose.
-Animation playback and a scene inspector are planned follow-up work.
+The viewer applies the rendering policy carried by CNA's imported model:
+single- versus double-sided materials, mirrored placements, alpha blending and
+per-texture sampler state. A light-less scene receives CNA's default lighting
+(except authored unlit materials), skin palettes are applied in the bind pose,
+and a selected skeletal or rigid-node animation is looped. CNA's structured
+import diagnostics remain visible on screen and are printed in full to stdout.
 
 ## Requirements
 
@@ -23,15 +22,14 @@ Animation playback and a scene inspector are planned follow-up work.
 ## Build
 
 ```bash
-cmake -S . -B build -G Ninja -DCNA_GRAPHICS_RENDERER=OPENGLES3
+cmake -S . -B build -G Ninja \
+  -DCNA_ROOT_DIR=/path/to/cna \
+  -DCNA_GRAPHICS_RENDERER=OPENGLES3
 cmake --build build --target cna_gltf_viewer --parallel 3
 ```
 
-`CNA_ROOT_DIR` may be used when CNA is not checked out next to this repository:
-
-```bash
-cmake -S . -B build -G Ninja -DCNA_ROOT_DIR=/path/to/cna
-```
+`CNA_ROOT_DIR` may be omitted when the configured default points at the desired
+CNA checkout.
 
 The build also produces CNA's `cna_tool_gltf_to_cnj` converter. Its absolute
 build-time path is embedded in the viewer, so the viewer always invokes the
@@ -46,14 +44,26 @@ converter from the same build tree.
 Optional arguments:
 
 ```text
-cna-gltf-viewer <model.gltf|model.glb> [--scale <positive-number>] [--output <empty-directory>]
+cna-gltf-viewer <model.gltf|model.glb> [options]
+
+--direct            Load glTF directly, without generated CNJ files
+--scale <number>    Offline conversion unit scale (default: 1)
+--output <dir>      Keep offline CNJ output in an empty directory
+--clip <name>       Select and loop an imported animation clip
+--no-cull           Disable face culling for debugging
+--capture <file>    Save the first rendered frame as PNG and exit
 ```
 
 `--scale` is passed to CNA's converter and is useful for assets authored in
-centimetres (`--scale 0.01`). Without `--output`, generated CNJ files are
-written to a new directory below the system temporary directory; the path is
-printed at startup. An explicit output directory must be empty, preventing the
-viewer from overwriting unrelated converted content.
+centimetres (`--scale 0.01`). It cannot be combined with `--direct`, whose
+runtime path preserves glTF's metre units. Without `--output`, generated CNJ
+files are written below the system temporary directory and automatically
+removed on exit. An explicit output directory must be empty and is preserved.
+
+`--capture` is intended for deterministic smoke and visual-comparison runs. It
+captures the 800×480 back buffer after the model and diagnostics overlay have
+been drawn, then exits. The normal interactive mode continues until `Esc` or
+the window close action.
 
 Controls:
 
@@ -68,9 +78,10 @@ Controls:
 ctest --test-dir build --output-on-failure
 ```
 
-The test suite validates the command-line help path and converts a minimal
-glTF triangle through CNA's real converter, checking that a Model CNJ file is
-created.
+The registered test suite validates the command-line help path and converts a
+minimal glTF triangle through CNA's real converter. Release retakes additionally
+run the executable under a real renderer, capture representative direct and
+offline frames, and compare those images.
 
 ## License
 

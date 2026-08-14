@@ -86,6 +86,50 @@ namespace CnaGltfViewer
                 continue;
             }
 
+            if (argument == "--capture")
+            {
+                if (++index >= argc)
+                {
+                    throw std::invalid_argument("--capture requires a .png output path.");
+                }
+                if (options.capturePath.has_value())
+                {
+                    throw std::invalid_argument("--capture may be specified only once.");
+                }
+                options.capturePath = std::filesystem::path(argv[index]);
+                if (options.capturePath->extension() != ".png")
+                {
+                    throw std::invalid_argument("--capture output must have a .png extension.");
+                }
+                continue;
+            }
+
+            if (argument == "--clip")
+            {
+                if (++index >= argc || std::string_view(argv[index]).empty())
+                {
+                    throw std::invalid_argument("--clip requires a non-empty clip name.");
+                }
+                if (options.clipName.has_value())
+                {
+                    throw std::invalid_argument("--clip may be specified only once.");
+                }
+                options.clipName = std::string(argv[index]);
+                continue;
+            }
+
+            if (argument == "--direct")
+            {
+                options.direct = true;
+                continue;
+            }
+
+            if (argument == "--no-cull")
+            {
+                options.noCull = true;
+                continue;
+            }
+
             if (argument.starts_with('-'))
             {
                 throw std::invalid_argument("Unknown option: " + std::string(argument));
@@ -108,6 +152,14 @@ namespace CnaGltfViewer
         {
             throw std::invalid_argument("The input file must have a .gltf or .glb extension.");
         }
+        if (options.direct && options.outputDirectory.has_value())
+        {
+            throw std::invalid_argument("--direct cannot be combined with --output because no CNJ files are written.");
+        }
+        if (options.direct && options.unitScale != 1.0f)
+        {
+            throw std::invalid_argument("--direct cannot be combined with --scale; direct runtime loading preserves glTF units.");
+        }
 
         result.options = std::move(options);
         return result;
@@ -117,8 +169,15 @@ namespace CnaGltfViewer
     {
         std::cout
             << "Usage: " << executableName
-            << " <model.gltf|model.glb> [--scale <positive-number>] [--output <empty-directory>]\n\n"
-            << "Converts glTF to CNA CNJ and displays the generated model.\n\n"
+            << " <model.gltf|model.glb> [options]\n\n"
+            << "Loads glTF through CNA's offline CNJ path, or directly with --direct.\n\n"
+            << "Options:\n"
+            << "  --direct            Load .gltf/.glb directly without generated CNJ files\n"
+            << "  --scale <number>    Offline conversion unit scale (default: 1)\n"
+            << "  --output <dir>      Keep offline CNJ output in an empty directory\n"
+            << "  --clip <name>       Select and loop an imported animation clip\n"
+            << "  --no-cull           Disable face culling for debugging\n"
+            << "  --capture <file>    Save the first rendered frame as PNG and exit\n\n"
             << "Controls:\n"
             << "  Left mouse drag  Orbit camera\n"
             << "  Mouse wheel      Zoom\n"

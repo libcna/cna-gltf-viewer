@@ -172,6 +172,22 @@ namespace CnaGltfViewer
             std::sort(assets.begin(), assets.end());
             return assets;
         }
+
+        struct TemporaryOutputGuard
+        {
+            fs::path path;
+            bool armed = false;
+
+            ~TemporaryOutputGuard()
+            {
+                if (!armed)
+                {
+                    return;
+                }
+                std::error_code ignored;
+                fs::remove_all(path, ignored);
+            }
+        };
     }
 
     ConvertedScene CnjConverter::Convert(const ViewerOptions& options)
@@ -186,6 +202,10 @@ namespace CnaGltfViewer
         }
 
         const fs::path output = PrepareOutputDirectory(options);
+        TemporaryOutputGuard failureCleanup{
+            .path = output,
+            .armed = !options.outputDirectory.has_value(),
+        };
         const fs::path converter(CNA_GLTF_TO_CNJ_TOOL_PATH);
         if (!fs::is_regular_file(converter, error))
         {
@@ -208,6 +228,12 @@ namespace CnaGltfViewer
         }
 
         std::cout << "Loaded " << models.size() << " CNJ model asset(s).\n";
-        return {.outputDirectory = output, .modelAssets = std::move(models)};
+        ConvertedScene result{
+            .outputDirectory = output,
+            .modelAssets = std::move(models),
+            .temporaryOutput = failureCleanup.armed,
+        };
+        failureCleanup.armed = false;
+        return result;
     }
 }

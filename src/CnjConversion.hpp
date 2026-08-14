@@ -11,6 +11,7 @@ namespace CnaGltfViewer
     {
         std::filesystem::path outputDirectory;
         std::vector<std::filesystem::path> modelAssets;
+        bool temporaryOutput = false;
     };
 
     class CnjConverter
