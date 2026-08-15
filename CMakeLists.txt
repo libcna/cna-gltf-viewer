@@ -15,7 +15,7 @@ if(NOT EXISTS "${CNA_ROOT_DIR}/CMakeLists.txt")
         "Clone https://github.com/openeggbert/cna next to this repository or set CNA_ROOT_DIR.")
 endif()
 
-set(CNA_GLTF_VIEWER_RENDERERS SDL_RENDERER OPENGLES3 BGFX VULKAN WEBGPU HEADLESS SOFTWARE)
+set(CNA_GLTF_VIEWER_RENDERERS SDL_RENDERER OPENGLES3 BGFX VULKAN WEBGPU HEADLESS SOFTWARE DIRECTX11)
 set(CNA_GRAPHICS_RENDERER "OPENGLES3" CACHE STRING "CNA graphics renderer")
 set_property(CACHE CNA_GRAPHICS_RENDERER PROPERTY STRINGS ${CNA_GLTF_VIEWER_RENDERERS})
 
@@ -65,10 +65,19 @@ endif()
 target_link_libraries(cna_gltf_viewer PRIVATE CNA)
 
 find_package(SDL3 REQUIRED CONFIG)
+find_package(SDL3_image REQUIRED CONFIG)
+find_package(SDL3_mixer REQUIRED CONFIG)
 target_link_libraries(cna_gltf_viewer PRIVATE SDL3::SDL3)
 
 if(TARGET SDL3::SDL3main)
     target_link_libraries(cna_gltf_viewer PRIVATE SDL3::SDL3main)
+endif()
+
+if(MINGW)
+    cna_copy_mingw_cxx_runtime(cna_gltf_viewer)
+endif()
+if(WIN32)
+    cna_copy_sdl_runtime(cna_gltf_viewer)
 endif()
 
 add_dependencies(cna_gltf_viewer cna_tool_gltf_to_cnj)
