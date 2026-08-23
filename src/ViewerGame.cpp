@@ -49,6 +49,9 @@
 
 namespace CnaGltfViewer
 {
+    using Microsoft::Xna::Framework::Input::KeyboardState;
+    using Microsoft::Xna::Framework::Input::Keys;
+
     namespace
     {
         namespace fs = std::filesystem;
@@ -234,6 +237,58 @@ namespace CnaGltfViewer
             }
             return result.str();
         }
+
+        [[nodiscard]] bool IsGltfFile(const fs::path& path)
+        {
+            std::string extension = path.extension().string();
+            std::transform(extension.begin(), extension.end(), extension.begin(),
+                           [](const unsigned char character)
+                           {
+                               return static_cast<char>(std::tolower(character));
+                           });
+            return extension == ".gltf" || extension == ".glb";
+        }
+
+        [[nodiscard]] std::string TruncateText(const std::string& text,
+                                                const std::size_t maximumCharacters)
+        {
+            if (text.size() <= maximumCharacters)
+            {
+                return text;
+            }
+            if (maximumCharacters <= 3)
+            {
+                return text.substr(0, maximumCharacters);
+            }
+            return text.substr(0, maximumCharacters - 3) + "...";
+        }
+
+        [[nodiscard]] std::string DisplayPath(const fs::path& path,
+                                               const std::size_t maximumCharacters)
+        {
+            std::string value = path.generic_string();
+            if (value.empty())
+            {
+                value = ".";
+            }
+            return TruncateText(value, maximumCharacters);
+        }
+
+        [[nodiscard]] std::string DisplayEntryLabel(const fs::path& path,
+                                                     const bool parentDirectory,
+                                                     const bool directory,
+                                                     const std::size_t maximumCharacters)
+        {
+            if (parentDirectory)
+            {
+                return "..";
+            }
+
+            const std::string prefix = directory
+                ? "DIR "
+                : "      ";
+            return TruncateText(prefix + path.filename().string(), maximumCharacters);
+        }
     }
 
     ViewerGame::ViewerGame(ViewerOptions options)
@@ -273,12 +328,25 @@ namespace CnaGltfViewer
 
     void ViewerGame::LoadContent()
     {
-        LoadModels();
-        ConfigureFallbackLighting();
-        ConfigureAnimations();
-        ConfigureDiagnostics();
-        ConfigureCameraFromModels();
+        InitializeOverlay();
+        if (options_.inputPath.empty())
+        {
+            std::error_code error;
+            const fs::path directory = fs::current_path(error);
+            if (error)
+            {
+                throw std::runtime_error("Could not determine the current directory: " +
+                                         error.message());
+            }
+            OpenFileBrowser(directory);
+            return;
+        }
 
+        LoadScene(options_.inputPath, false);
+    }
+
+    void ViewerGame::InitializeOverlay()
+    {
         GraphicsDevice& device = getGraphicsDeviceProperty();
         spriteBatch_ = std::make_unique<SpriteBatch>(device);
         overlayPixel_ = std::make_unique<Texture2D>(device, 1, 1);
@@ -286,23 +354,76 @@ namespace CnaGltfViewer
         overlayPixel_->SetData(&white, 1);
     }
 
-    void ViewerGame::LoadModels()
+    void ViewerGame::LoadScene(const fs::path& inputPath, const bool fromFileBrowser)
+    {
+        ViewerOptions loadOptions = options_;
+        loadOptions.inputPath = inputPath;
+        if (fromFileBrowser)
+        {
+            // Command-line output/capture destinations describe one startup load. A model
+            // selected later must be able to load repeatedly, so give it a fresh temporary CNJ
+            // directory and do not reuse one-shot capture/oracle settings. Scene-specific
+            // selectors are also cleared because another file need not contain the same clip or
+            // camera.
+            loadOptions.outputDirectory.reset();
+            loadOptions.oracleOutputDirectory.reset();
+            loadOptions.capturePath.reset();
+            loadOptions.referenceCapture = false;
+            loadOptions.clipName.reset();
+            loadOptions.animationTimeSeconds.reset();
+            loadOptions.cameraSelector.reset();
+        }
+
+        ClearLoadedScene();
+        options_ = std::move(loadOptions);
+        LoadModels(options_);
+        ConfigureFallbackLighting();
+        ConfigureAnimations();
+        ConfigureDiagnostics();
+        ConfigureCameraFromModels();
+        frameCaptured_ = false;
+    }
+
+    void ViewerGame::ClearLoadedScene()
+    {
+        // Playback objects contain pointers into models_, so they must be destroyed first.
+        skinPlaybacks_.clear();
+        rigidPlaybacks_.clear();
+        importedCamera_.reset();
+        diagnosticOverlayLines_.clear();
+        models_.clear();
+        getContentProperty().Unload();
+
+        if (convertedScene_.has_value() && convertedScene_->temporaryOutput)
+        {
+            std::error_code error;
+            fs::remove_all(convertedScene_->outputDirectory, error);
+            if (error)
+            {
+                std::cerr << "warning: could not remove temporary CNJ directory "
+                          << convertedScene_->outputDirectory << ": " << error.message() << "\n";
+            }
+        }
+        convertedScene_.reset();
+    }
+
+    void ViewerGame::LoadModels(const ViewerOptions& loadOptions)
     {
         // This diagnostic is deliberately available on both load paths. It invokes the exact
         // converter embedded with this viewer, so a direct-render investigation and an offline
         // CNJ investigation can emit the same deterministic L2-L5 evidence before rendering.
-        CnjConverter::DumpOracle(options_);
+        CnjConverter::DumpOracle(loadOptions);
 
         std::error_code error;
-        const fs::path input = fs::absolute(options_.inputPath, error);
+        const fs::path input = fs::absolute(loadOptions.inputPath, error);
         if (error || !fs::is_regular_file(input, error))
         {
             throw std::runtime_error(
                 "Input glTF file does not exist or is not a regular file: " +
-                options_.inputPath.string());
+                loadOptions.inputPath.string());
         }
 
-        if (options_.direct)
+        if (loadOptions.direct)
         {
             getContentProperty().setRootDirectoryProperty(input.parent_path().string());
             models_.reserve(1);
@@ -311,7 +432,7 @@ namespace CnaGltfViewer
             return;
         }
 
-        convertedScene_ = CnjConverter::Convert(options_);
+        convertedScene_ = CnjConverter::Convert(loadOptions);
         getContentProperty().setRootDirectoryProperty(convertedScene_->outputDirectory.string());
 
         models_.reserve(convertedScene_->modelAssets.size());
@@ -541,6 +662,14 @@ namespace CnaGltfViewer
 
         using namespace Microsoft::Xna::Framework::Input;
         const KeyboardState keyboard = Keyboard::GetState();
+        if (fileBrowserActive_)
+        {
+            HandleFileBrowserInput(
+                keyboard, gameTime.getElapsedGameTimeProperty().getTotalSecondsProperty());
+            previousKeyboard_ = keyboard;
+            return;
+        }
+
         if (keyboard.IsKeyDown(Keys::Escape))
         {
             Exit();
@@ -549,6 +678,23 @@ namespace CnaGltfViewer
         if (keyboard.IsKeyDown(Keys::R))
         {
             ResetCamera();
+        }
+        if (IsKeyPressed(keyboard, Keys::O))
+        {
+            std::error_code error;
+            fs::path directory = options_.inputPath.empty()
+                ? fs::current_path(error)
+                : fs::absolute(options_.inputPath, error).parent_path();
+            if (error)
+            {
+                fileBrowserStatus_ = "ERROR: " + error.message();
+            }
+            else
+            {
+                OpenFileBrowser(directory);
+            }
+            previousKeyboard_ = keyboard;
+            return;
         }
 
         const MouseState currentMouse = Mouse::GetState();
@@ -576,6 +722,286 @@ namespace CnaGltfViewer
             }
         }
         previousMouse_ = currentMouse;
+        previousKeyboard_ = keyboard;
+    }
+
+    bool ViewerGame::IsKeyPressed(
+        const Microsoft::Xna::Framework::Input::KeyboardState& keyboard,
+        const Microsoft::Xna::Framework::Input::Keys key) const
+    {
+        return keyboard.IsKeyDown(key) &&
+               (!previousKeyboard_.has_value() || previousKeyboard_->IsKeyUp(key));
+    }
+
+    void ViewerGame::OpenFileBrowser(const fs::path& directory)
+    {
+        std::error_code error;
+        fs::path absoluteDirectory = fs::absolute(directory, error);
+        if (error)
+        {
+            fileBrowserStatus_ = "ERROR: " + error.message();
+            fileBrowserActive_ = true;
+            fileBrowserEntries_.clear();
+            return;
+        }
+        absoluteDirectory = absoluteDirectory.lexically_normal();
+        if (!fs::is_directory(absoluteDirectory, error) || error)
+        {
+            fileBrowserStatus_ = "ERROR: not a directory";
+            fileBrowserActive_ = true;
+            fileBrowserEntries_.clear();
+            return;
+        }
+
+        fileBrowserDirectory_ = std::move(absoluteDirectory);
+        fileBrowserActive_ = true;
+        fileBrowserSelection_ = 0;
+        fileBrowserFirstVisible_ = 0;
+        RefreshFileBrowser();
+    }
+
+    void ViewerGame::RefreshFileBrowser()
+    {
+        fileBrowserEntries_.clear();
+        fileBrowserSelection_ = 0;
+        fileBrowserFirstVisible_ = 0;
+
+        std::error_code error;
+        const fs::path parent = fileBrowserDirectory_.parent_path();
+        if (!parent.empty() && parent != fileBrowserDirectory_)
+        {
+            fileBrowserEntries_.push_back({
+                .kind = FileBrowserEntry::Kind::ParentDirectory,
+                .path = parent,
+                .label = ".."});
+        }
+
+        std::vector<fs::path> directories;
+        std::vector<fs::path> models;
+        fs::directory_iterator iterator(fileBrowserDirectory_, error);
+        if (error)
+        {
+            fileBrowserStatus_ = "ERROR: cannot read directory";
+            return;
+        }
+
+        const fs::directory_iterator end;
+        for (; iterator != end; iterator.increment(error))
+        {
+            if (error)
+            {
+                fileBrowserStatus_ = "ERROR: cannot read directory";
+                return;
+            }
+            const fs::directory_entry& entry = *iterator;
+            std::error_code entryError;
+            if (entry.is_directory(entryError))
+            {
+                directories.push_back(entry.path());
+            }
+            else if (!entryError && entry.is_regular_file(entryError) && IsGltfFile(entry.path()))
+            {
+                models.push_back(entry.path());
+            }
+        }
+
+        const auto pathLess = [](const fs::path& left, const fs::path& right)
+        {
+            std::string leftName = left.filename().string();
+            std::string rightName = right.filename().string();
+            std::transform(leftName.begin(), leftName.end(), leftName.begin(),
+                           [](const unsigned char character)
+                           {
+                               return static_cast<char>(std::tolower(character));
+                           });
+            std::transform(rightName.begin(), rightName.end(), rightName.begin(),
+                           [](const unsigned char character)
+                           {
+                               return static_cast<char>(std::tolower(character));
+                           });
+            return leftName == rightName ? left < right : leftName < rightName;
+        };
+        std::sort(directories.begin(), directories.end(), pathLess);
+        std::sort(models.begin(), models.end(), pathLess);
+
+        constexpr std::size_t maximumLabelCharacters = 56;
+        for (const fs::path& path : directories)
+        {
+            fileBrowserEntries_.push_back({
+                .kind = FileBrowserEntry::Kind::Directory,
+                .path = path,
+                .label = DisplayEntryLabel(path, false, true, maximumLabelCharacters)});
+        }
+        for (const fs::path& path : models)
+        {
+            fileBrowserEntries_.push_back({
+                .kind = FileBrowserEntry::Kind::ModelFile,
+                .path = path,
+                .label = DisplayEntryLabel(path, false, false, maximumLabelCharacters)});
+        }
+        fileBrowserStatus_.clear();
+    }
+
+    void ViewerGame::KeepFileBrowserSelectionVisible()
+    {
+        constexpr std::size_t visibleEntries = 17;
+        if (fileBrowserSelection_ < fileBrowserFirstVisible_)
+        {
+            fileBrowserFirstVisible_ = fileBrowserSelection_;
+        }
+        else if (fileBrowserSelection_ >= fileBrowserFirstVisible_ + visibleEntries)
+        {
+            fileBrowserFirstVisible_ = fileBrowserSelection_ - visibleEntries + 1;
+        }
+    }
+
+    void ViewerGame::HandleFileBrowserInput(
+        const Microsoft::Xna::Framework::Input::KeyboardState& keyboard,
+        const double elapsedSeconds)
+    {
+        if (IsKeyPressed(keyboard, Keys::Escape))
+        {
+            if (models_.empty())
+            {
+                Exit();
+            }
+            else
+            {
+                fileBrowserActive_ = false;
+                fileBrowserStatus_.clear();
+            }
+            return;
+        }
+
+        const bool up = keyboard.IsKeyDown(Keys::Up);
+        const bool down = keyboard.IsKeyDown(Keys::Down);
+        if (up != down)
+        {
+            const Keys arrow = up ? Keys::Up : Keys::Down;
+            if (!fileBrowserHeldArrow_.has_value() || *fileBrowserHeldArrow_ != arrow)
+            {
+                fileBrowserHeldArrow_ = arrow;
+                fileBrowserArrowHeldSeconds_ = 0.0;
+                fileBrowserArrowRepeatSeconds_ = 0.0;
+                fileBrowserArrowRepeating_ = false;
+                MoveFileBrowserSelection(up ? -1 : 1);
+            }
+            else if (!fileBrowserEntries_.empty())
+            {
+                constexpr double repeatDelay = 0.30;
+                constexpr double repeatInterval = 0.075;
+                const double safeElapsedSeconds = std::max(elapsedSeconds, 0.0);
+                if (!fileBrowserArrowRepeating_)
+                {
+                    fileBrowserArrowHeldSeconds_ += safeElapsedSeconds;
+                    if (fileBrowserArrowHeldSeconds_ >= repeatDelay)
+                    {
+                        fileBrowserArrowRepeating_ = true;
+                        fileBrowserArrowRepeatSeconds_ = 0.0;
+                        MoveFileBrowserSelection(up ? -1 : 1);
+                    }
+                }
+                else
+                {
+                    fileBrowserArrowRepeatSeconds_ += safeElapsedSeconds;
+                    while (fileBrowserArrowRepeatSeconds_ >= repeatInterval)
+                    {
+                        fileBrowserArrowRepeatSeconds_ -= repeatInterval;
+                        MoveFileBrowserSelection(up ? -1 : 1);
+                    }
+                }
+            }
+        }
+        else
+        {
+            fileBrowserHeldArrow_.reset();
+            fileBrowserArrowHeldSeconds_ = 0.0;
+            fileBrowserArrowRepeatSeconds_ = 0.0;
+            fileBrowserArrowRepeating_ = false;
+        }
+        if (IsKeyPressed(keyboard, Keys::PageUp) && !fileBrowserEntries_.empty())
+        {
+            constexpr std::size_t pageSize = 17;
+            fileBrowserSelection_ = fileBrowserSelection_ > pageSize
+                ? fileBrowserSelection_ - pageSize
+                : 0;
+            KeepFileBrowserSelectionVisible();
+        }
+        if (IsKeyPressed(keyboard, Keys::PageDown) && !fileBrowserEntries_.empty())
+        {
+            constexpr std::size_t pageSize = 17;
+            fileBrowserSelection_ = std::min(
+                fileBrowserSelection_ + pageSize, fileBrowserEntries_.size() - 1);
+            KeepFileBrowserSelectionVisible();
+        }
+        if (IsKeyPressed(keyboard, Keys::Home) && !fileBrowserEntries_.empty())
+        {
+            fileBrowserSelection_ = 0;
+            KeepFileBrowserSelectionVisible();
+        }
+        if (IsKeyPressed(keyboard, Keys::End) && !fileBrowserEntries_.empty())
+        {
+            fileBrowserSelection_ = fileBrowserEntries_.size() - 1;
+            KeepFileBrowserSelectionVisible();
+        }
+        if (IsKeyPressed(keyboard, Keys::Back))
+        {
+            const fs::path parent = fileBrowserDirectory_.parent_path();
+            if (!parent.empty() && parent != fileBrowserDirectory_)
+            {
+                OpenFileBrowser(parent);
+            }
+            return;
+        }
+        if (IsKeyPressed(keyboard, Keys::Enter) && !fileBrowserEntries_.empty())
+        {
+            SelectFileBrowserEntry();
+        }
+    }
+
+    void ViewerGame::MoveFileBrowserSelection(const int direction)
+    {
+        if (fileBrowserEntries_.empty())
+        {
+            return;
+        }
+        if (direction < 0)
+        {
+            fileBrowserSelection_ = fileBrowserSelection_ == 0
+                ? fileBrowserEntries_.size() - 1
+                : fileBrowserSelection_ - 1;
+        }
+        else if (direction > 0)
+        {
+            fileBrowserSelection_ = (fileBrowserSelection_ + 1) % fileBrowserEntries_.size();
+        }
+        KeepFileBrowserSelectionVisible();
+    }
+
+    void ViewerGame::SelectFileBrowserEntry()
+    {
+        const FileBrowserEntry entry = fileBrowserEntries_.at(fileBrowserSelection_);
+        if (entry.kind == FileBrowserEntry::Kind::ParentDirectory ||
+            entry.kind == FileBrowserEntry::Kind::Directory)
+        {
+            OpenFileBrowser(entry.path);
+            return;
+        }
+
+        try
+        {
+            LoadScene(entry.path, true);
+            fileBrowserActive_ = false;
+            fileBrowserStatus_.clear();
+            std::cout << "Opened glTF file from the file browser: " << entry.path << "\n";
+        }
+        catch (const std::exception& error)
+        {
+            ClearLoadedScene();
+            fileBrowserActive_ = true;
+            fileBrowserStatus_ = std::string("ERROR: ") + error.what();
+            std::cerr << "cna-gltf-viewer: " << error.what() << '\n';
+        }
     }
 
     void ViewerGame::UpdateAnimations(const Microsoft::Xna::Framework::GameTime& gameTime)
@@ -673,6 +1099,10 @@ namespace CnaGltfViewer
         if (!options_.referenceCapture)
         {
             DrawDiagnosticsOverlay();
+            if (fileBrowserActive_)
+            {
+                DrawFileBrowserOverlay();
+            }
         }
         CaptureFirstFrame();
     }
@@ -810,6 +1240,67 @@ namespace CnaGltfViewer
             }
             DrawPixelText(*spriteBatch_, *overlayPixel_, 24, y, line, color);
             y += 20;
+        }
+        spriteBatch_->End();
+    }
+
+    void ViewerGame::DrawFileBrowserOverlay()
+    {
+        if (!spriteBatch_ || !overlayPixel_)
+        {
+            return;
+        }
+
+        const Viewport viewport = getGraphicsDeviceProperty().getViewportProperty();
+        const int width = viewport.getWidthProperty();
+        const int height = viewport.getHeightProperty();
+        const int panelWidth = std::max(width - 24, 240);
+        const int panelHeight = std::max(height - 24, 180);
+        const std::size_t maximumCharacters = static_cast<std::size_t>(
+            std::max((panelWidth - 48) / 12, 20));
+        constexpr std::size_t visibleEntries = 17;
+
+        spriteBatch_->Begin();
+        spriteBatch_->Draw(*overlayPixel_, Rectangle(12, 12, panelWidth, panelHeight),
+                           Color(0, 0, 0, 238));
+
+        DrawPixelText(*spriteBatch_, *overlayPixel_, 24, 22, "OPEN GLTF OR GLB", Color::White);
+        DrawPixelText(*spriteBatch_, *overlayPixel_, 24, 42,
+                      "DIR " + DisplayPath(fileBrowserDirectory_, maximumCharacters),
+                      Color(180, 205, 235, 255));
+        DrawPixelText(*spriteBatch_, *overlayPixel_, 24, 62,
+                      "UP DOWN PAGE HOME END MOVE ENTER OPEN BACK ESC CLOSE",
+                      Color(210, 220, 235, 255));
+
+        if (fileBrowserEntries_.empty())
+        {
+            DrawPixelText(*spriteBatch_, *overlayPixel_, 24, 100,
+                          "NO GLTF OR GLB FILES IN THIS DIRECTORY",
+                          Color(235, 235, 235, 255));
+        }
+        else
+        {
+            const std::size_t end = std::min(
+                fileBrowserEntries_.size(), fileBrowserFirstVisible_ + visibleEntries);
+            int y = 100;
+            for (std::size_t index = fileBrowserFirstVisible_; index < end; ++index)
+            {
+                const bool selected = index == fileBrowserSelection_;
+                const std::string line = std::string(selected ? "> " : "  ") +
+                                         fileBrowserEntries_[index].label;
+                const Color color = selected ? Color(255, 235, 125, 255)
+                                             : Color(235, 235, 235, 255);
+                DrawPixelText(*spriteBatch_, *overlayPixel_, 24, y,
+                              TruncateText(line, maximumCharacters), color);
+                y += 20;
+            }
+        }
+
+        if (!fileBrowserStatus_.empty())
+        {
+            DrawPixelText(*spriteBatch_, *overlayPixel_, 24, height - 42,
+                          TruncateText(fileBrowserStatus_, maximumCharacters),
+                          Color(255, 135, 115, 255));
         }
         spriteBatch_->End();
     }

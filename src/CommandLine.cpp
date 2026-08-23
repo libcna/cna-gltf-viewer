@@ -81,7 +81,10 @@ namespace CnaGltfViewer
     {
         if (argc == 1)
         {
-            return {.options = std::nullopt, .showHelp = true};
+            // Start in the in-application file browser. This keeps the viewer useful when it is
+            // launched from a desktop shortcut and also makes it possible to switch models later
+            // without restarting the process.
+            return {.options = ViewerOptions{}, .showHelp = false};
         }
 
         CommandLineResult result;
@@ -278,8 +281,10 @@ namespace CnaGltfViewer
     {
         std::cout
             << "Usage: " << executableName
-            << " <model.gltf|model.glb> [options]\n\n"
+            << " [model.gltf|model.glb] [options]\n\n"
             << "Loads glTF through CNA's offline CNJ path, or directly with --direct.\n\n"
+            << "When no model path is supplied, the viewer opens its in-application file browser\n"
+            << "in the current directory.\n\n"
             << "Options:\n"
             << "  --direct            Load .gltf/.glb directly without generated CNJ files\n"
             << "  --scale <number>    Offline conversion unit scale (default: 1)\n"
@@ -295,6 +300,8 @@ namespace CnaGltfViewer
             << "  Left mouse drag  Orbit camera\n"
             << "  Mouse wheel      Zoom\n"
             << "  R                Reset camera\n"
+            << "  O                Open another .gltf/.glb file\n"
+            << "  Browser: arrows/PageUp/PageDown/Home/End select, Enter open, Backspace parent, Esc close\n"
             << "  Esc              Exit\n";
     }
 }

@@ -41,6 +41,12 @@ converter from the same build tree.
 ./build/cna_gltf_viewer path/to/model.glb
 ```
 
+When started without a model path (`./build/cna_gltf_viewer`), the viewer opens
+an in-application browser in the current directory. It lists directories and
+`.gltf`/`.glb` files; choose a directory or `..` with `Up`/`Down` and press
+`Enter` to navigate or open a model. The same browser can be opened at any
+time with `O`, starting in the directory of the currently displayed model.
+
 Optional arguments:
 
 ```text
@@ -110,7 +116,13 @@ Controls:
 - Left mouse drag: orbit
 - Mouse wheel: zoom
 - `R`: reset the camera
+- `O`: open another `.gltf`/`.glb` file
 - `Esc`: exit
+
+While the file browser is open, use `Up`/`Down` or `PageUp`/`PageDown` to
+select, `Home`/`End` to jump to the first/last entry, `Enter` to open the
+selected directory or model, `Backspace` to go to the parent directory, and
+`Esc` to close the browser.
 
 ## Tests
 
