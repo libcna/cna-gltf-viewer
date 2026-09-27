@@ -296,6 +296,11 @@ namespace CnaGltfViewer
           graphics_(this)
     {
         getWindowProperty().setTitleProperty("CNA glTF Viewer");
+        if (options_.capturePath.has_value())
+        {
+            graphics_.setGraphicsProfileProperty(
+                Microsoft::Xna::Framework::Graphics::GraphicsProfile::HiDef);
+        }
         // Match CNA's initial desktop window size. This also keeps an Xvfb capture exact: a bare
         // X11 server has no window manager to acknowledge a later asynchronous resize request.
         graphics_.setPreferredBackBufferWidthProperty(options_.referenceCapture ? 512 : 800);
@@ -1328,9 +1333,9 @@ namespace CnaGltfViewer
         }
 
         GraphicsDevice& device = getGraphicsDeviceProperty();
-        const Viewport viewport = device.getViewportProperty();
-        const int width = viewport.getWidthProperty();
-        const int height = viewport.getHeightProperty();
+        const auto& presentation = device.getPresentationParametersProperty();
+        const int width = presentation.getBackBufferWidthProperty();
+        const int height = presentation.getBackBufferHeightProperty();
         std::vector<Color> pixels(
             static_cast<std::size_t>(width) * static_cast<std::size_t>(height),
             Color::Transparent);

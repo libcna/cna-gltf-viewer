@@ -35,6 +35,12 @@ The build also produces CNA's `cna_tool_gltf_to_cnj` converter. Its absolute
 build-time path is embedded in the viewer, so the viewer always invokes the
 converter from the same build tree.
 
+For native Windows builds, use the Visual Studio 2022 x64 generator with
+`CNA_PLATFORM=WIN32`, `CNA_ENABLE_SDL=OFF`, `CNA_AUDIO_PLATFORM=NULL`, and
+`CNA_GRAPHICS_RENDERER=DIRECTX11` or `DIRECTX12`. Build the
+`cna_gltf_viewer` target in each renderer's separate out-of-tree build
+directory.
+
 ## Run
 
 ```bash

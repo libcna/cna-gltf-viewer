@@ -10,31 +10,48 @@
 #include <string>
 #include <system_error>
 
+#ifdef _WIN32
+#include <process.h>
+#endif
+
 namespace CnaGltfViewer
 {
     namespace
     {
         namespace fs = std::filesystem;
 
+#ifdef _WIN32
+        [[nodiscard]] std::wstring QuoteForSpawn(const std::wstring& text)
+        {
+            std::wstring quoted = L"\"";
+            std::size_t backslashes = 0;
+            for (const wchar_t character : text)
+            {
+                if (character == L'\\')
+                {
+                    ++backslashes;
+                }
+                else if (character == L'"')
+                {
+                    quoted.append(backslashes * 2 + 1, L'\\');
+                    quoted += character;
+                    backslashes = 0;
+                }
+                else
+                {
+                    quoted.append(backslashes, L'\\');
+                    quoted += character;
+                    backslashes = 0;
+                }
+            }
+            quoted.append(backslashes * 2, L'\\');
+            return quoted + L'"';
+        }
+#else
         [[nodiscard]] std::string QuoteForShell(const fs::path& path)
         {
             const std::string text = path.string();
 
-#ifdef _WIN32
-            std::string quoted = "\"";
-            for (const char character : text)
-            {
-                if (character == '\"')
-                {
-                    quoted += "\\\"";
-                }
-                else
-                {
-                    quoted += character;
-                }
-            }
-            return quoted + "\"";
-#else
             std::string quoted = "'";
             for (const char character : text)
             {
@@ -48,8 +65,8 @@ namespace CnaGltfViewer
                 }
             }
             return quoted + "'";
-#endif
         }
+#endif
 
         [[nodiscard]] fs::path CreateTemporaryOutputDirectory()
         {
@@ -212,10 +229,22 @@ namespace CnaGltfViewer
             throw std::runtime_error("CNA glTF-to-CNJ converter was not found: " + converter.string());
         }
 
+        std::cout << "Converting " << input << " to CNJ in " << output << "...\n";
+#ifdef _WIN32
+        const std::wstring converterPath = converter.wstring();
+        const std::wstring converterArgument = QuoteForSpawn(converterPath);
+        const std::wstring inputPath = QuoteForSpawn(input.wstring());
+        const std::wstring outputPath = QuoteForSpawn(output.wstring());
+        const std::string scaleText = std::to_string(options.unitScale);
+        const std::wstring scale(scaleText.begin(), scaleText.end());
+        const wchar_t* const arguments[] = {
+            converterArgument.c_str(), inputPath.c_str(), outputPath.c_str(), L"scene", scale.c_str(), nullptr};
+        const int exitCode = _wspawnv(_P_WAIT, converterPath.c_str(), arguments);
+#else
         const std::string command = QuoteForShell(converter) + " " + QuoteForShell(input) + " " +
                                     QuoteForShell(output) + " scene " + std::to_string(options.unitScale);
-        std::cout << "Converting " << input << " to CNJ in " << output << "...\n";
         const int exitCode = std::system(command.c_str());
+#endif
         if (exitCode != 0)
         {
             throw std::runtime_error("CNA glTF-to-CNJ conversion failed with exit code " + std::to_string(exitCode) + ".");
@@ -268,11 +297,21 @@ namespace CnaGltfViewer
                 "CNA glTF-to-CNJ converter was not found: " + converter.string());
         }
 
-        const std::string command = QuoteForShell(converter) + " --dump-oracle " +
-                                    QuoteForShell(input) + " " + QuoteForShell(output);
         std::cout << "Writing L2-L5 oracle evidence for " << input << " to " << output
                   << "...\n";
+#ifdef _WIN32
+        const std::wstring converterPath = converter.wstring();
+        const std::wstring converterArgument = QuoteForSpawn(converterPath);
+        const std::wstring inputPath = QuoteForSpawn(input.wstring());
+        const std::wstring outputPath = QuoteForSpawn(output.wstring());
+        const wchar_t* const arguments[] = {
+            converterArgument.c_str(), L"--dump-oracle", inputPath.c_str(), outputPath.c_str(), nullptr};
+        const int exitCode = _wspawnv(_P_WAIT, converterPath.c_str(), arguments);
+#else
+        const std::string command = QuoteForShell(converter) + " --dump-oracle " +
+                                    QuoteForShell(input) + " " + QuoteForShell(output);
         const int exitCode = std::system(command.c_str());
+#endif
         if (exitCode != 0)
         {
             throw std::runtime_error(
