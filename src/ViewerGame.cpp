@@ -245,6 +245,11 @@ namespace CnaGltfViewer
         graphics_.setPreferredBackBufferHeightProperty(options_.referenceCapture ? 512 : 480);
         graphics_.setPreferredPresentationModeProperty(
             Microsoft::Xna::Framework::PresentationMode::NativeBackBuffer);
+        // --capture reads the frame back with GetBackBufferData, which XNA refuses under Reach and
+        // CNA now does too (SOFTWARE-213). A glTF viewer's scenes need HiDef anyway: 32-bit indices,
+        // large textures. Asking for it here is what XNA required of the same game.
+        graphics_.setGraphicsProfileProperty(
+            Microsoft::Xna::Framework::Graphics::GraphicsProfile::HiDef);
     }
 
     ViewerGame::~ViewerGame()
