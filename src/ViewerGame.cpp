@@ -19,6 +19,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "CNA/GraphicsCapability.hpp"
+#include "CNA/Platform/NativeWindowHandle.hpp"
 #include "Microsoft/Xna/Framework/BoundingSphere.hpp"
 #include "Microsoft/Xna/Framework/Color.hpp"
 #include "Microsoft/Xna/Framework/GameTime.hpp"
@@ -333,6 +335,21 @@ namespace CnaGltfViewer
 
     void ViewerGame::LoadContent()
     {
+        GraphicsDevice& device = getGraphicsDeviceProperty();
+        if (!device.SupportsCapability(CNA::GraphicsCapability::ThreeD))
+        {
+            throw std::runtime_error(
+                "The selected CNA renderer does not provide the 3D pipeline required by "
+                "cna-gltf-viewer.");
+        }
+        if (!options_.capturePath.has_value() &&
+            !CNA::Platform::HasNativeWindow(getWindowProperty().GetNativeWindowHandleEXT()))
+        {
+            throw std::runtime_error(
+                "Interactive cna-gltf-viewer requires a native window. Use a windowed renderer "
+                "or provide --capture for a supported off-screen renderer.");
+        }
+
         InitializeOverlay();
         if (options_.inputPath.empty())
         {

@@ -15,21 +15,13 @@ if(NOT EXISTS "${CNA_ROOT_DIR}/CMakeLists.txt")
         "Clone https://github.com/openeggbert/cna next to this repository or set CNA_ROOT_DIR.")
 endif()
 
-set(CNA_GLTF_VIEWER_RENDERERS SDL_RENDERER OPENGLES3 BGFX VULKAN WEBGPU HEADLESS SOFTWARE DIRECTX11 DIRECTX12)
-set(CNA_GRAPHICS_RENDERER "OPENGLES3" CACHE STRING "CNA graphics renderer")
-set_property(CACHE CNA_GRAPHICS_RENDERER PROPERTY STRINGS ${CNA_GLTF_VIEWER_RENDERERS})
-
-if(NOT CNA_GRAPHICS_RENDERER IN_LIST CNA_GLTF_VIEWER_RENDERERS)
-    message(FATAL_ERROR
-        "Unknown CNA_GRAPHICS_RENDERER='${CNA_GRAPHICS_RENDERER}'. "
-        "Choose one of: ${CNA_GLTF_VIEWER_RENDERERS}.")
-endif()
-
-# The viewer needs CNA's CNAEXT PBR effects to faithfully display PBR glTF
-# materials. CNA's own tests/examples and transitive dependency tests are not
-# part of this application's build.
-set(CNA_CNAEXT ON CACHE BOOL "Enable CNA extended graphics APIs" FORCE)
+# CNA owns renderer identity validation and the platform-specific default. The
+# viewer checks the selected renderer's capabilities at runtime instead of
+# maintaining a second renderer allowlist that can drift.
 set(CNA_ENABLE_NET OFF CACHE BOOL "Disable unused CNA networking" FORCE)
+set(CNA_ENABLE_GAMER_SERVICES OFF CACHE BOOL "Disable unused CNA gamer services" FORCE)
+set(CNA_ENABLE_VIDEO OFF CACHE STRING "Disable unused CNA video support" FORCE)
+set(CNA_AUDIO_PLATFORM NULL CACHE STRING "Disable unused CNA audio output" FORCE)
 set(CNA_BUILD_TESTS OFF CACHE BOOL "Disable CNA tests" FORCE)
 set(CNA_BUILD_EXAMPLES OFF CACHE BOOL "Disable CNA examples" FORCE)
 set(EASYGL_BUILD_TESTS OFF CACHE BOOL "Disable EasyGL tests" FORCE)
@@ -64,20 +56,11 @@ endif()
 # the framework/renderer static-library cycles itself.
 target_link_libraries(cna_gltf_viewer PRIVATE CNA)
 
-if(TARGET SDL3::SDL3)
-    target_link_libraries(cna_gltf_viewer PRIVATE SDL3::SDL3)
+if(NOT COMMAND cna_deploy_runtime)
+    message(FATAL_ERROR
+        "The selected CNA revision predates cna_deploy_runtime(); use a newer CNA checkout.")
 endif()
-
-if(TARGET SDL3::SDL3main)
-    target_link_libraries(cna_gltf_viewer PRIVATE SDL3::SDL3main)
-endif()
-
-if(MINGW)
-    cna_copy_mingw_cxx_runtime(cna_gltf_viewer)
-endif()
-if(WIN32 AND TARGET SDL3::SDL3)
-    cna_copy_sdl_runtime(cna_gltf_viewer)
-endif()
+cna_deploy_runtime(cna_gltf_viewer)
 
 add_dependencies(cna_gltf_viewer cna_tool_gltf_to_cnj)
 

@@ -1,0 +1,74 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "linux-opengles3",
+      "displayName": "Linux OPENGLES3 viewer",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-opengles3",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CNA_GRAPHICS_RENDERER": "OPENGLES3"
+      }
+    },
+    {
+      "name": "windows-msvc-sdlgpu",
+      "displayName": "Windows MSVC SDLGPU viewer",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/windows-msvc-sdlgpu",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CNA_GRAPHICS_RENDERER": "SDLGPU"
+      }
+    },
+    {
+      "name": "headless-tools",
+      "displayName": "Headless CLI and converter tests",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/headless-tools",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CNA_GRAPHICS_RENDERER": "HEADLESS"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-opengles3",
+      "configurePreset": "linux-opengles3"
+    },
+    {
+      "name": "windows-msvc-sdlgpu",
+      "configurePreset": "windows-msvc-sdlgpu",
+      "configuration": "Debug"
+    },
+    {
+      "name": "headless-tools",
+      "configurePreset": "headless-tools"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "headless-tools",
+      "configurePreset": "headless-tools",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

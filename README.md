@@ -17,15 +17,16 @@ import diagnostics remain visible on screen and are printed in full to stdout.
 - CMake 3.21 or newer
 - A C++23 compiler
 - A sibling checkout of [CNA](https://github.com/openeggbert/cna) at `../cna`
-- A desktop OpenGL environment for the default `OPENGLES3` renderer
+- A sibling `sharp-runtime` checkout; Linux's default `OPENGLES3` additionally
+  needs sibling `easy-gl` and `meta-gl` checkouts
+- CNA's required submodules initialized with `git -C ../cna submodule update --init`
+- A working desktop graphics environment for interactive use
 
 ## Build
 
 ```bash
-cmake -S . -B build -G Ninja \
-  -DCNA_ROOT_DIR=/path/to/cna \
-  -DCNA_GRAPHICS_RENDERER=OPENGLES3
-cmake --build build --target cna_gltf_viewer --parallel 3
+cmake --preset linux-opengles3
+cmake --build --preset linux-opengles3 --parallel 3
 ```
 
 `CNA_ROOT_DIR` may be omitted when the configured default points at the desired
@@ -35,19 +36,29 @@ The build also produces CNA's `cna_tool_gltf_to_cnj` converter. Its absolute
 build-time path is embedded in the viewer, so the viewer always invokes the
 converter from the same build tree.
 
-For native Windows builds, use the Visual Studio 2022 x64 generator with
-`CNA_PLATFORM=WIN32`, `CNA_ENABLE_SDL=OFF`, `CNA_AUDIO_PLATFORM=NULL`, and
-`CNA_GRAPHICS_RENDERER=DIRECTX11` or `DIRECTX12`. Build the
-`cna_gltf_viewer` target in each renderer's separate out-of-tree build
-directory.
+The converter is currently a CNA source-tree target and is not exported by the
+installed CNA SDK. For that reason the viewer deliberately consumes CNA with
+`add_subdirectory()` and does not offer a `find_package(CNA)` mode yet.
+
+On Windows, CNA's modern default is `SDLGPU`; SDL selects Direct3D 12 internally.
+Use the `windows-msvc-sdlgpu` preset. `DIRECTX9` remains an optional Windows-only
+compatibility renderer, not the modern default. CNA deploys SDL and renderer
+runtime libraries beside the executable through its shared deployment helper.
+
+CNA validates renderer names and platform gates. The viewer separately checks
+the selected renderer's capabilities at startup: interactive use requires a 3D
+pipeline and a native window. Windowless renderers are useful for CLI/converter
+tests; a renderer with suitable off-screen rendering may also be used with
+`--capture`.
 
 ## Run
 
 ```bash
-./build/cna_gltf_viewer path/to/model.glb
+./build/linux-opengles3/cna_gltf_viewer path/to/model.glb
 ```
 
-When started without a model path (`./build/cna_gltf_viewer`), the viewer opens
+When started without a model path
+(`./build/linux-opengles3/cna_gltf_viewer`), the viewer opens
 an in-application browser in the current directory. It lists directories and
 `.gltf`/`.glb` files; choose a directory or `..` with `Up`/`Down` and press
 `Enter` to navigate or open a model. The same browser can be opened at any
@@ -133,13 +144,16 @@ selected directory or model, `Backspace` to go to the parent directory, and
 ## Tests
 
 ```bash
-ctest --test-dir build --output-on-failure
+cmake --preset headless-tools
+cmake --build --preset headless-tools --parallel 3
+ctest --preset headless-tools
 ```
 
 The registered test suite validates the command-line help path and converts a
 minimal glTF triangle through CNA's real converter. Release retakes additionally
 run the executable under a real renderer, capture representative direct and
-offline frames, and compare those images.
+offline frames, and compare those images. Run those GPU/window tests through
+CNA's private GPU runner rather than on a live desktop.
 
 ## License
 

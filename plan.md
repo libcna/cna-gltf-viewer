@@ -40,6 +40,10 @@ compensations.
 - Automatic deletion of implicit temporary CNJ output on both conversion
   failure and normal viewer shutdown.
 - CTest coverage for CLI help and a real glTF-to-CNJ conversion fixture.
+- Renderer identity validation delegated to CNA, with runtime checks for the 3D
+  and native-window capabilities the interactive viewer actually requires.
+- CNA's shared runtime deployment helper packages SDL, renderer and MinGW
+  payloads beside the executable.
 
 ## Current limitations
 
@@ -49,7 +53,8 @@ compensations.
 - Transparent primitives are drawn after opaque primitives, but are not yet
   depth-sorted against one another.
 - Cross-renderer image coverage outside the pinned Khronos Gate C protocol
-  remains campaign work tracked by CNA's `plan_gltf.md`.
+  remains campaign work tracked by CNA's current glTF documentation, handoff
+  and Git history.
 
 ## Next milestones
 
