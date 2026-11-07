@@ -1,8 +1,42 @@
 #include "CommandLine.hpp"
 #include "ViewerGame.hpp"
+#include "System/Exception.hpp"
 
 #include <exception>
 #include <iostream>
+
+namespace
+{
+    void WriteExceptionDiagnostic(const std::exception& error)
+    {
+        std::cerr << error.what();
+        const auto* systemError = dynamic_cast<const System::Exception*>(&error);
+        if (systemError == nullptr)
+        {
+            return;
+        }
+
+        const std::exception_ptr inner = systemError->getInnerExceptionProperty();
+        if (!inner)
+        {
+            return;
+        }
+
+        std::cerr << ": ";
+        try
+        {
+            std::rethrow_exception(inner);
+        }
+        catch (const std::exception& cause)
+        {
+            WriteExceptionDiagnostic(cause);
+        }
+        catch (...)
+        {
+            std::cerr << "Unknown exception";
+        }
+    }
+}
 
 int main(const int argc, char* argv[])
 {
@@ -21,7 +55,9 @@ int main(const int argc, char* argv[])
     }
     catch (const std::exception& error)
     {
-        std::cerr << "cna-gltf-viewer: " << error.what() << '\n';
+        std::cerr << "cna-gltf-viewer: ";
+        WriteExceptionDiagnostic(error);
+        std::cerr << '\n';
         return 1;
     }
 }
