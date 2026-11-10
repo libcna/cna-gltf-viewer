@@ -57,7 +57,8 @@ namespace CnaGltfViewer
             {
                 if (character == '\'')
                 {
-                    quoted += "'\\\"'\\\"'";
+                    // Close the single-quoted word, emit an escaped quote, then reopen it.
+                    quoted += "'\\''";
                 }
                 else
                 {

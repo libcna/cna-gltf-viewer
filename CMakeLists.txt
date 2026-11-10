@@ -79,6 +79,15 @@ if(CNA_GLTF_VIEWER_BUILD_TESTS)
     # OPENGLES3 rung: every canonical fixture is loaded through ContentManager in two independent
     # processes and compared with its committed EasyGL image/disposition oracle.
     if(CNA_GRAPHICS_RENDERER STREQUAL "OPENGLES3")
+        # Offline load and capture through paths that need shell quoting; needs a display.
+        add_test(
+            NAME CnaGltfViewerOfflineQuotedPaths
+            COMMAND ${CMAKE_COMMAND}
+                "-DVIEWER=$<TARGET_FILE:cna_gltf_viewer>"
+                "-DSOURCE_MODEL=${CNA_ROOT_DIR}/tests/assets/gltf/glb-basic.glb"
+                "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/tests/quoted-paths"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/VerifyQuotedPaths.cmake")
+
         find_package(Python3 REQUIRED COMPONENTS Interpreter)
         add_test(
             NAME CnaGltfConformanceL7

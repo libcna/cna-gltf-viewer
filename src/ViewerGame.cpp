@@ -1201,6 +1201,14 @@ namespace CnaGltfViewer
                     {
                         device.getSamplerStatesProperty()[static_cast<int>(slot)] = samplers[slot];
                     }
+                    // KHR_materials_specular strength and colour maps follow the five core PBR
+                    // maps in device sampler slots 5 and 6.
+                    const auto& specularSamplers = part->getSpecularSamplerStatesEXTProperty();
+                    for (std::size_t slot = 0; slot != specularSamplers.size(); ++slot)
+                    {
+                        device.getSamplerStatesProperty()[static_cast<int>(samplers.size() + slot)] =
+                            specularSamplers[slot];
+                    }
 
                     device.SetVertexBuffer(part->getVertexBufferProperty());
                     device.setIndicesProperty(part->getIndexBufferProperty());

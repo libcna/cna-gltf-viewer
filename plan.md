@@ -39,7 +39,8 @@ compensations.
 - Safe explicit-output behaviour: a supplied output directory must be empty.
 - Automatic deletion of implicit temporary CNJ output on both conversion
   failure and normal viewer shutdown.
-- CTest coverage for CLI help and a real glTF-to-CNJ conversion fixture.
+- CTest coverage for CLI help and a real glTF-to-CNJ conversion fixture; an
+  OPENGLES3 build adds an offline load through quoted paths and CNA's L7 corpus.
 - Renderer identity validation delegated to CNA, with runtime checks for the 3D
   and native-window capabilities the interactive viewer actually requires.
 - CNA's shared runtime deployment helper packages SDL, renderer and MinGW
@@ -48,8 +49,8 @@ compensations.
 ## Current limitations
 
 - The viewer has no scene hierarchy, material, or animation inspector.
-- Input is command-line based; drag-and-drop and an in-app file picker are not
-  included.
+- Models are opened from the command line or the in-application file browser;
+  drag-and-drop loading is not included.
 - Transparent primitives are drawn after opaque primitives, but are not yet
   depth-sorted against one another.
 - Cross-renderer image coverage outside the pinned Khronos Gate C protocol
@@ -58,5 +59,5 @@ compensations.
 
 ## Next milestones
 
-1. Add drag-and-drop loading and model reload without restarting the process.
+1. Add drag-and-drop loading.
 2. Add a scene/material/animation inspector and transparent-depth sorting.

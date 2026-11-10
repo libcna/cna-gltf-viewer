@@ -150,10 +150,18 @@ ctest --preset headless-tools
 ```
 
 The registered test suite validates the command-line help path and converts a
-minimal glTF triangle through CNA's real converter. Release retakes additionally
-run the executable under a real renderer, capture representative direct and
-offline frames, and compare those images. Run those GPU/window tests through
-CNA's private GPU runner rather than on a live desktop.
+minimal glTF triangle through CNA's real converter. An `OPENGLES3` build also
+registers two tests that open a window: `CnaGltfViewerOfflineQuotedPaths` loads
+and captures a model through input and output paths containing spaces and
+apostrophes, and `CnaGltfConformanceL7` runs CNA's `scripts/gltf-l7-corpus.py`
+over its canonical glTF corpus (it needs Python 3 with Pillow). Release retakes
+additionally run the executable under a real renderer, capture representative
+direct and offline frames, and compare those images. Run these GPU/window tests
+through CNA's private GPU runner rather than on a live desktop:
+
+```bash
+../cna/tools/platform/run_gpu_tests_private.sh build/linux-opengles3 --output-on-failure
+```
 
 ## License
 
